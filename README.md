@@ -50,9 +50,10 @@ npm run typecheck
 - `.github/workflows/ci.yml` runs `typecheck` and unit tests on push/PR.
 - `.github/workflows/azure-infra-e2e.yml` is manual and creates a temporary Azure resource group for live infra verification.
 
-For GitHub-hosted Azure infra tests, configure repository secret:
+For GitHub-hosted Azure infra tests, configure one auth mode:
 
 - `AZURE_CREDENTIALS` (service principal JSON for `azure/login`)
+- or `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID` for OIDC login
 
 ## Notes
 
