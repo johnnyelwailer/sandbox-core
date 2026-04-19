@@ -1,0 +1,23 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/core"
+    },
+    {
+      "path": "./packages/schemas"
+    },
+    {
+      "path": "./packages/sdk-typescript"
+    },
+    {
+      "path": "./packages/adapter-local-docker"
+    },
+    {
+      "path": "./packages/adapter-azure"
+    },
+    {
+      "path": "./packages/adapter-opensandbox"
+    }
+  ]
+}
