@@ -87,7 +87,7 @@ export class AzureBackend implements SandboxBackend {
 
   constructor(readonly options: AzureBackendOptions = {}) {
     this.commandRunner = options.runner ?? createAzureCommandRunner(options.azBinary ?? "az");
-    this.defaultImage = options.defaultImage ?? "alpine:3.20";
+    this.defaultImage = options.defaultImage ?? "mcr.microsoft.com/azurelinux/base/core:3.0";
     this.defaultContainerCommand = options.defaultContainerCommand ?? ["sh", "-lc", "tail -f /dev/null"];
     this.containerNamePrefix = options.containerNamePrefix ?? "sandbox-core";
     this.idGenerator = options.idGenerator ?? (() => randomUUID().replaceAll("-", ""));
@@ -118,6 +118,8 @@ export class AzureBackend implements SandboxBackend {
       String(this.cpu),
       "--memory",
       String(this.memoryInGb),
+      "--os-type",
+      "Linux",
       "--restart-policy",
       "Never",
       "--location",
@@ -639,6 +641,7 @@ export class AzureBackend implements SandboxBackend {
     shellScript: string,
     timeoutMs?: number
   ): Promise<ParsedExecResult> {
+    const execCommand = this.wrapScriptForExec(shellScript);
     const result = await this.runAz({
       args: [
         "container",
@@ -648,12 +651,17 @@ export class AzureBackend implements SandboxBackend {
         "--name",
         record.containerName,
         "--exec-command",
-        `sh -lc ${this.shellQuote(shellScript)}`
+        execCommand
       ],
       timeoutMs
     });
 
     return this.parseExecResult(result);
+  }
+
+  private wrapScriptForExec(shellScript: string): string {
+    const encoded = Buffer.from(shellScript, "utf8").toString("base64");
+    return `sh -c printf\${IFS}%s\${IFS}${encoded}|base64\${IFS}-d|sh`;
   }
 
   private parseExecResult(result: AzureCommandResult): ParsedExecResult {

@@ -46,13 +46,14 @@ test("integration: create, exec, upload, download, terminate", async (context) =
   }
 
   const backend = createAzureBackend({
+    defaultImage: "mcr.microsoft.com/azurelinux/base/core:3.0",
     region: process.env.AZURE_LOCATION ?? "westeurope",
     resourceGroup
   });
 
   const sandbox = await backend.create({
     environment: {
-      image: "alpine:3.20",
+      image: "mcr.microsoft.com/azurelinux/base/core:3.0",
       kind: "container"
     }
   });
