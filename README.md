@@ -16,7 +16,8 @@ This repository now contains:
 - a portable core contract
 - a functional in-memory backend for tests and examples
 - a minimally functional local Docker backend
-- stub backend packages for Azure and OpenSandbox
+- a minimally functional Azure backend via `az` CLI
+- a stub OpenSandbox backend
 
 ## Workspace layout
 
@@ -40,6 +41,7 @@ npm install
 npm run build
 npm test
 npm run test:docker   # optional, requires local Docker daemon
+npm run test:azure    # optional, requires az login + Azure resource group
 npm run typecheck
 ```
 
@@ -47,6 +49,7 @@ npm run typecheck
 
 - `adapter-memory` is functional and intended for tests/examples only.
 - `adapter-local-docker` supports lifecycle, exec, upload, and download via `docker` CLI.
-- The Azure and OpenSandbox packages are scaffold-only in this first cut.
+- `adapter-azure` supports lifecycle, exec, upload, and download via `az` CLI + Azure Container Instances.
+- `adapter-opensandbox` is scaffold-only in this cut.
 - Core stays backend-neutral.
 - Browser, artifacts, and durability are modeled as optional capabilities.

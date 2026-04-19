@@ -1,7 +1,7 @@
 {
   "name": "@sandbox-core/adapter-azure",
   "version": "0.1.0",
-  "description": "Azure backend scaffold for sandbox-core",
+  "description": "Azure backend for sandbox-core",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
