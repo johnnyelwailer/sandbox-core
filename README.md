@@ -17,7 +17,7 @@ This repository now contains:
 - a functional in-memory backend for tests and examples
 - a minimally functional local Docker backend
 - a minimally functional Azure backend via `az` CLI
-- a stub OpenSandbox backend
+- a functional OpenSandbox HTTP adapter
 
 ## Workspace layout
 
@@ -42,6 +42,7 @@ npm run build
 npm test
 npm run test:docker   # optional, requires local Docker daemon
 npm run test:azure    # optional, requires az login + Azure resource group
+npm run test:opensandbox  # optional, requires OpenSandbox endpoint
 npm run typecheck
 ```
 
@@ -60,6 +61,6 @@ For GitHub-hosted Azure infra tests, configure one auth mode:
 - `adapter-memory` is functional and intended for tests/examples only.
 - `adapter-local-docker` supports lifecycle, exec, upload, and download via `docker` CLI.
 - `adapter-azure` supports lifecycle, exec, upload, and download via `az` CLI + Azure Container Instances.
-- `adapter-opensandbox` is scaffold-only in this cut.
+- `adapter-opensandbox` supports lifecycle, exec, upload, and download over HTTP transport.
 - Core stays backend-neutral.
 - Browser, artifacts, and durability are modeled as optional capabilities.

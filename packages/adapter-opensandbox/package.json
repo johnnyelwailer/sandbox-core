@@ -1,7 +1,7 @@
 {
   "name": "@sandbox-core/adapter-opensandbox",
   "version": "0.1.0",
-  "description": "OpenSandbox backend scaffold for sandbox-core",
+  "description": "OpenSandbox HTTP backend for sandbox-core",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
