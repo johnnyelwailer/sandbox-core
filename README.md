@@ -39,6 +39,7 @@ docs/
 npm install
 npm run build
 npm test
+npm run test:docker   # optional, requires local Docker daemon
 npm run typecheck
 ```
 

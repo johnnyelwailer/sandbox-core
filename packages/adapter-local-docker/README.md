@@ -14,3 +14,10 @@ Notes:
 - this adapter uses the local `docker` CLI
 - durability is process-local plus reconnect by sandbox id
 - browser/artifact capabilities are not implemented yet
+
+Tests:
+
+- fast unit tests run through the root `npm test`
+- optional real-docker integration test:
+  - `npm run test:docker`
+  - requires `RUN_DOCKER_TESTS=1` (set by script) and an available local Docker daemon
