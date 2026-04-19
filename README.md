@@ -45,6 +45,15 @@ npm run test:azure    # optional, requires az login + Azure resource group
 npm run typecheck
 ```
 
+## CI
+
+- `.github/workflows/ci.yml` runs `typecheck` and unit tests on push/PR.
+- `.github/workflows/azure-infra-e2e.yml` is manual and creates a temporary Azure resource group for live infra verification.
+
+For GitHub-hosted Azure infra tests, configure repository secret:
+
+- `AZURE_CREDENTIALS` (service principal JSON for `azure/login`)
+
 ## Notes
 
 - `adapter-memory` is functional and intended for tests/examples only.
