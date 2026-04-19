@@ -185,3 +185,151 @@ test("sandbox id parser handles valid and invalid ids", () => {
   assert.equal(parseAzureSandboxId("local:rg:test"), null);
   assert.equal(parseAzureSandboxId("azure:only-one-part"), null);
 });
+
+test("create fails when resource group is not configured", async () => {
+  const backend = createAzureBackend({
+    resourceGroup: "",
+    runner: async () => ({
+      exitCode: 0,
+      signal: null,
+      stderr: "",
+      stdout: "",
+      timedOut: false
+    })
+  });
+
+  await assert.rejects(
+    () =>
+      backend.create({
+        environment: {
+          image: "mcr.microsoft.com/azurelinux/base/core:3.0",
+          kind: "container"
+        }
+      }),
+    (error: unknown) =>
+      error instanceof SandboxError &&
+      error.code === "invalid_request" &&
+      error.message.includes("resource group")
+  );
+});
+
+test("terminate tolerates missing container and inspect reports terminated", async () => {
+  const { runner } = createRunner(async (request) => {
+    if (request.args[0] === "container" && request.args[1] === "create") {
+      return {
+        exitCode: 0,
+        signal: null,
+        stderr: "",
+        stdout: "{}",
+        timedOut: false
+      };
+    }
+
+    if (request.args[0] === "container" && request.args[1] === "delete") {
+      return {
+        exitCode: 1,
+        signal: null,
+        stderr: "(ResourceNotFound) The Resource was not found",
+        stdout: "",
+        timedOut: false
+      };
+    }
+
+    if (request.args[0] === "container" && request.args[1] === "show") {
+      return {
+        exitCode: 1,
+        signal: null,
+        stderr: "(ResourceNotFound) The Resource was not found",
+        stdout: "",
+        timedOut: false
+      };
+    }
+
+    return {
+      exitCode: 0,
+      signal: null,
+      stderr: "",
+      stdout: "",
+      timedOut: false
+    };
+  });
+
+  const backend = createAzureBackend({
+    idGenerator: () => "term1",
+    resourceGroup: "rg-test",
+    runner
+  });
+
+  const sandbox = await backend.create({
+    environment: {
+      image: "mcr.microsoft.com/azurelinux/base/core:3.0",
+      kind: "container"
+    }
+  });
+
+  await sandbox.terminate();
+  const info = await sandbox.inspect();
+  assert.equal(info.status, "terminated");
+});
+
+test("exec command wrapper avoids shell quotes for azure container exec", async () => {
+  const { calls, runner } = createRunner(async (request) => {
+    if (request.args[0] === "container" && request.args[1] === "create") {
+      return {
+        exitCode: 0,
+        signal: null,
+        stderr: "",
+        stdout: "{}",
+        timedOut: false
+      };
+    }
+
+    if (request.args[0] === "container" && request.args[1] === "exec") {
+      return {
+        exitCode: 0,
+        signal: null,
+        stderr: "",
+        stdout: "hello\n__SC_EXIT_CODE__=0\n",
+        timedOut: false
+      };
+    }
+
+    return {
+      exitCode: 0,
+      signal: null,
+      stderr: "",
+      stdout: "",
+      timedOut: false
+    };
+  });
+
+  const backend = createAzureBackend({
+    idGenerator: () => "wrap1",
+    resourceGroup: "rg-test",
+    runner
+  });
+
+  const sandbox = await backend.create({
+    environment: {
+      image: "mcr.microsoft.com/azurelinux/base/core:3.0",
+      kind: "container"
+    }
+  });
+
+  const events = [];
+  for await (const event of sandbox.exec({ args: ["hello"], command: "echo" })) {
+    events.push(event);
+  }
+
+  assert.equal(events[2]?.type, "exit");
+
+  const execCall = calls.find(
+    (call) => call.args[0] === "container" && call.args[1] === "exec"
+  );
+  const execCommandIndex = execCall?.args.findIndex((arg) => arg === "--exec-command") ?? -1;
+  assert.ok(execCall !== undefined);
+  assert.ok(execCommandIndex >= 0);
+  const execCommand = execCall?.args[execCommandIndex + 1] ?? "";
+  assert.ok(execCommand.includes("sh -c printf${IFS}%s${IFS}"));
+  assert.ok(!execCommand.includes("'"));
+});

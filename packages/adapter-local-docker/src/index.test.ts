@@ -234,3 +234,88 @@ test("template requests fail if template is unknown", async () => {
       error.message.includes("Template 'missing'")
   );
 });
+
+test("create fails when secret refs exist without resolver", async () => {
+  const backend = createLocalDockerBackend({
+    runner: async () => ({
+      exitCode: 0,
+      signal: null,
+      stderr: "",
+      stdout: "",
+      timedOut: false
+    })
+  });
+
+  await assert.rejects(
+    () =>
+      backend.create({
+        environment: {
+          image: "alpine:3.20",
+          kind: "container"
+        },
+        secrets: [{ name: "MISSING_SECRET" }]
+      }),
+    (error: unknown) =>
+      error instanceof SandboxError &&
+      error.code === "secret_resolution_failed" &&
+      error.message.includes("resolveSecret")
+  );
+});
+
+test("terminate tolerates missing container and reports terminated on inspect", async () => {
+  const { runner } = createRunner(async (request) => {
+    if (request.args[0] === "run") {
+      return {
+        exitCode: 0,
+        signal: null,
+        stderr: "",
+        stdout: "container-id\n",
+        timedOut: false
+      };
+    }
+
+    if (request.args[0] === "rm") {
+      return {
+        exitCode: 1,
+        signal: null,
+        stderr: "Error: No such container: sandbox-core-term1",
+        stdout: "",
+        timedOut: false
+      };
+    }
+
+    if (request.args[0] === "inspect") {
+      return {
+        exitCode: 1,
+        signal: null,
+        stderr: "Error: No such container: sandbox-core-term1",
+        stdout: "",
+        timedOut: false
+      };
+    }
+
+    return {
+      exitCode: 0,
+      signal: null,
+      stderr: "",
+      stdout: "",
+      timedOut: false
+    };
+  });
+
+  const backend = createLocalDockerBackend({
+    idGenerator: () => "term1",
+    runner
+  });
+
+  const sandbox = await backend.create({
+    environment: {
+      image: "alpine:3.20",
+      kind: "container"
+    }
+  });
+
+  await sandbox.terminate();
+  const info = await sandbox.inspect();
+  assert.equal(info.status, "terminated");
+});
