@@ -5,6 +5,8 @@ import { dirname, join } from "node:path";
 
 import { SandboxError } from "@sandbox-core/core";
 import type {
+  BrowserSession,
+  BrowserSessionRequest,
   CreateSandboxRequest,
   DownloadRequest,
   ExecRequest,
@@ -28,6 +30,7 @@ import {
 export type { DockerCommandRequest, DockerCommandResult, DockerCommandRunner } from "./docker-runner";
 
 export interface LocalDockerBackendOptions {
+  browser?: LocalDockerBrowserOptions;
   containerNamePrefix?: string;
   defaultContainerCommand?: string[];
   defaultImage?: string;
@@ -44,7 +47,16 @@ export interface LocalDockerBackendOptions {
   runner?: DockerCommandRunner;
 }
 
+export interface LocalDockerBrowserOptions {
+  command?: string[];
+  containerPort?: number;
+  enable?: boolean;
+  endpointPath?: string;
+  image?: string;
+}
+
 interface DockerSandboxRecord {
+  browserContainers: string[];
   capabilities: SandboxCapabilityDescriptor[];
   containerName: string;
   createdAt: string;
@@ -56,7 +68,7 @@ interface DockerSandboxRecord {
 }
 
 export class LocalDockerBackend implements SandboxBackend {
-  readonly advertisedCapabilities = ["durability"] as const;
+  readonly advertisedCapabilities: readonly string[];
   readonly displayName = "Local Docker";
   readonly id = "local-docker";
   private readonly commandRunner: DockerCommandRunner;
@@ -65,6 +77,11 @@ export class LocalDockerBackend implements SandboxBackend {
   private readonly defaultContainerCommand: string[];
   private readonly containerNamePrefix: string;
   private readonly idGenerator: () => string;
+  private readonly browserEnabled: boolean;
+  private readonly browserImage: string;
+  private readonly browserCommand: string[];
+  private readonly browserContainerPort: number;
+  private readonly browserEndpointPath: string;
 
   constructor(readonly options: LocalDockerBackendOptions = {}) {
     this.commandRunner =
@@ -73,6 +90,22 @@ export class LocalDockerBackend implements SandboxBackend {
     this.defaultContainerCommand = options.defaultContainerCommand ?? ["sh", "-lc", "tail -f /dev/null"];
     this.containerNamePrefix = options.containerNamePrefix ?? "sandbox-core";
     this.idGenerator = options.idGenerator ?? (() => randomUUID().replaceAll("-", ""));
+    this.browserEnabled = options.browser?.enable ?? false;
+    this.browserImage = options.browser?.image ?? "mcr.microsoft.com/playwright:v1.52.0-noble";
+    this.browserCommand = options.browser?.command ?? [
+      "npx",
+      "playwright",
+      "run-server",
+      "--port",
+      "3000",
+      "--host",
+      "0.0.0.0"
+    ];
+    this.browserContainerPort = options.browser?.containerPort ?? 3000;
+    this.browserEndpointPath = options.browser?.endpointPath ?? "/";
+    this.advertisedCapabilities = this.browserEnabled
+      ? ["browser", "durability"]
+      : ["durability"];
   }
 
   async create(request: CreateSandboxRequest, context: SandboxContext = {}): Promise<Sandbox> {
@@ -108,7 +141,8 @@ export class LocalDockerBackend implements SandboxBackend {
     );
 
     const record: DockerSandboxRecord = {
-      capabilities: [{ name: "durability" }],
+      browserContainers: [],
+      capabilities: this.baseCapabilities(),
       containerName,
       createdAt,
       id: sandboxId,
@@ -143,7 +177,8 @@ export class LocalDockerBackend implements SandboxBackend {
 
     const now = new Date().toISOString();
     const record: DockerSandboxRecord = {
-      capabilities: [{ name: "durability" }],
+      browserContainers: [],
+      capabilities: this.baseCapabilities(),
       containerName,
       createdAt: now,
       id: lookup.id,
@@ -166,6 +201,13 @@ export class LocalDockerBackend implements SandboxBackend {
       getCapability: async <Name extends keyof SandboxCapabilityMap>(
         name: Name
       ): Promise<SandboxCapabilityMap[Name] | null> => {
+        if (name === "browser" && this.browserEnabled) {
+          return {
+            acquireSession: async (request?: BrowserSessionRequest): Promise<BrowserSession> =>
+              this.acquireBrowserSession(record, request)
+          } as SandboxCapabilityMap[Name];
+        }
+
         if (name !== "durability") {
           return null;
         }
@@ -348,9 +390,81 @@ export class LocalDockerBackend implements SandboxBackend {
     }
   }
 
+  private async acquireBrowserSession(
+    record: DockerSandboxRecord,
+    _request?: BrowserSessionRequest
+  ): Promise<BrowserSession> {
+    const browserContainerName = `${record.containerName}-browser-${this.idGenerator().slice(0, 8)}`;
+    const publishedPort = `0:${this.browserContainerPort}`;
+
+    await this.runDockerStrict(
+      {
+        args: [
+          "run",
+          "-d",
+          "--name",
+          browserContainerName,
+          "-p",
+          publishedPort,
+          this.browserImage,
+          ...this.browserCommand
+        ]
+      },
+      "start browser session",
+      "execution_failed"
+    );
+
+    try {
+      const portResult = await this.runDockerStrict(
+        {
+          args: ["port", browserContainerName, `${this.browserContainerPort}/tcp`]
+        },
+        "resolve browser session port",
+        "execution_failed"
+      );
+
+      const hostPort = this.parseDockerPublishedPort(portResult.stdout);
+      if (hostPort === null) {
+        throw new SandboxError({
+          code: "execution_failed",
+          message: "Failed to parse docker published browser port.",
+          details: {
+            output: portResult.stdout
+          }
+        });
+      }
+
+      record.browserContainers.push(browserContainerName);
+
+      return {
+        endpoint: `ws://127.0.0.1:${hostPort}${this.browserEndpointPath}`,
+        metadata: {
+          containerName: browserContainerName,
+          hostPort
+        },
+        protocol: "playwright"
+      };
+    } catch (error) {
+      await this.runDocker({
+        args: ["rm", "-f", browserContainerName]
+      });
+      throw error;
+    }
+  }
+
   private async terminateRecord(record: DockerSandboxRecord): Promise<void> {
     record.status = "terminating";
     record.updatedAt = new Date().toISOString();
+
+    for (const browserContainerName of record.browserContainers) {
+      const cleanup = await this.runDocker({
+        args: ["rm", "-f", browserContainerName]
+      });
+      if (cleanup.exitCode !== 0 && !this.isMissingContainerError(cleanup.stderr)) {
+        throw this.mapDockerFailure("execution_failed", "terminate browser session", cleanup);
+      }
+    }
+    record.browserContainers = [];
 
     const result = await this.runDocker({
       args: ["rm", "-f", record.containerName]
@@ -508,6 +622,27 @@ export class LocalDockerBackend implements SandboxBackend {
       return null;
     }
     return sandboxId.slice(prefix.length);
+  }
+
+  private baseCapabilities(): SandboxCapabilityDescriptor[] {
+    return this.browserEnabled ? [{ name: "browser" }, { name: "durability" }] : [{ name: "durability" }];
+  }
+
+  private parseDockerPublishedPort(output: string): number | null {
+    const line = output
+      .split("\n")
+      .map((value) => value.trim())
+      .find((value) => value.length > 0);
+    if (line === undefined) {
+      return null;
+    }
+
+    const match = line.match(/:(\d+)\s*$/);
+    if (match === null) {
+      return null;
+    }
+
+    return Number(match[1]);
   }
 
   private async runDocker(request: DockerCommandRequest): Promise<DockerCommandResult> {

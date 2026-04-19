@@ -1,0 +1,54 @@
+name: OpenSandbox Infra E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: OpenSandbox API base URL (overrides repository secret)
+        required: false
+        default: ""
+      namespace:
+        description: Optional OpenSandbox namespace
+        required: false
+        default: ""
+
+jobs:
+  opensandbox-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve OpenSandbox settings
+        run: |
+          if [ -n "${{ inputs.base_url }}" ]; then
+            echo "OPENSANDBOX_BASE_URL=${{ inputs.base_url }}" >> "$GITHUB_ENV"
+          elif [ -n "${{ secrets.OPENSANDBOX_BASE_URL }}" ]; then
+            echo "OPENSANDBOX_BASE_URL=${{ secrets.OPENSANDBOX_BASE_URL }}" >> "$GITHUB_ENV"
+          else
+            echo "Missing OpenSandbox base URL. Provide workflow input 'base_url' or repository secret OPENSANDBOX_BASE_URL."
+            exit 1
+          fi
+
+          if [ -n "${{ inputs.namespace }}" ]; then
+            echo "OPENSANDBOX_NAMESPACE=${{ inputs.namespace }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run OpenSandbox integration test
+        run: npm run test:opensandbox
+        env:
+          RUN_OPENSANDBOX_TESTS: "1"
+          OPENSANDBOX_BASE_URL: ${{ env.OPENSANDBOX_BASE_URL }}
+          OPENSANDBOX_API_KEY: ${{ secrets.OPENSANDBOX_API_KEY }}
+          OPENSANDBOX_NAMESPACE: ${{ env.OPENSANDBOX_NAMESPACE }}

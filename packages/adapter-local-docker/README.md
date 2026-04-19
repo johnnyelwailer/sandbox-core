@@ -8,12 +8,13 @@ Current behavior:
 - run commands with streamed status/stdout/stderr/exit events
 - upload and download files with `docker cp`
 - optional secret resolution through `SandboxContext.resolveSecret`
+- optional browser capability (Playwright-style endpoint) when `browser.enable` is set
 
 Notes:
 
 - this adapter uses the local `docker` CLI
 - durability is process-local plus reconnect by sandbox id
-- browser/artifact capabilities are not implemented yet
+- artifact capability is not implemented yet
 
 Tests:
 

@@ -319,3 +319,140 @@ test("terminate tolerates missing container and reports terminated on inspect", 
   const info = await sandbox.inspect();
   assert.equal(info.status, "terminated");
 });
+
+test("browser capability starts session and returns playwright endpoint", async () => {
+  const { runner } = createRunner(async (request) => {
+    if (request.args[0] === "run" && request.args.includes("-p")) {
+      return {
+        exitCode: 0,
+        signal: null,
+        stderr: "",
+        stdout: "browser-id\n",
+        timedOut: false
+      };
+    }
+
+    if (request.args[0] === "run") {
+      return {
+        exitCode: 0,
+        signal: null,
+        stderr: "",
+        stdout: "container-id\n",
+        timedOut: false
+      };
+    }
+
+    if (request.args[0] === "port") {
+      return {
+        exitCode: 0,
+        signal: null,
+        stderr: "",
+        stdout: "0.0.0.0:49153\n",
+        timedOut: false
+      };
+    }
+
+    return {
+      exitCode: 0,
+      signal: null,
+      stderr: "",
+      stdout: "",
+      timedOut: false
+    };
+  });
+
+  const backend = createLocalDockerBackend({
+    browser: {
+      enable: true
+    },
+    idGenerator: () => "browser1",
+    runner
+  });
+
+  const sandbox = await backend.create({
+    environment: {
+      image: "alpine:3.20",
+      kind: "container"
+    }
+  });
+
+  const browser = await sandbox.getCapability("browser");
+  assert.notEqual(browser, null);
+
+  const session = await browser?.acquireSession({ headless: true });
+  assert.equal(session?.protocol, "playwright");
+  assert.equal(session?.endpoint, "ws://127.0.0.1:49153/");
+});
+
+test("terminate cleans browser containers before sandbox container", async () => {
+  const rmCalls: string[] = [];
+  const { runner } = createRunner(async (request) => {
+    if (request.args[0] === "run" && request.args.includes("-p")) {
+      return {
+        exitCode: 0,
+        signal: null,
+        stderr: "",
+        stdout: "browser-id\n",
+        timedOut: false
+      };
+    }
+    if (request.args[0] === "run") {
+      return {
+        exitCode: 0,
+        signal: null,
+        stderr: "",
+        stdout: "container-id\n",
+        timedOut: false
+      };
+    }
+    if (request.args[0] === "port") {
+      return {
+        exitCode: 0,
+        signal: null,
+        stderr: "",
+        stdout: "0.0.0.0:49153\n",
+        timedOut: false
+      };
+    }
+    if (request.args[0] === "rm") {
+      rmCalls.push(request.args[2] ?? "");
+      return {
+        exitCode: 0,
+        signal: null,
+        stderr: "",
+        stdout: "",
+        timedOut: false
+      };
+    }
+
+    return {
+      exitCode: 0,
+      signal: null,
+      stderr: "",
+      stdout: "",
+      timedOut: false
+    };
+  });
+
+  const backend = createLocalDockerBackend({
+    browser: {
+      enable: true
+    },
+    idGenerator: () => "termbrowser",
+    runner
+  });
+
+  const sandbox = await backend.create({
+    environment: {
+      image: "alpine:3.20",
+      kind: "container"
+    }
+  });
+  const browser = await sandbox.getCapability("browser");
+  await browser?.acquireSession();
+  await sandbox.terminate();
+
+  assert.equal(rmCalls.length, 2);
+  assert.ok(rmCalls[0]?.includes("browser"));
+  assert.equal(rmCalls[1], "sandbox-core-termbrowser");
+});

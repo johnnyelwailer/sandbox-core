@@ -8,6 +8,9 @@
       "path": "./packages/schemas"
     },
     {
+      "path": "./packages/conformance"
+    },
+    {
       "path": "./packages/sdk-typescript"
     },
     {

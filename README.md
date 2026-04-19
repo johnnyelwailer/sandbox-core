@@ -27,6 +27,7 @@ packages/
   adapter-memory/
   adapter-local-docker/
   adapter-opensandbox/
+  conformance/
   core/
   schemas/
   sdk-typescript/
@@ -50,17 +51,24 @@ npm run typecheck
 
 - `.github/workflows/ci.yml` runs `typecheck` and unit tests on push/PR.
 - `.github/workflows/azure-infra-e2e.yml` is manual and creates a temporary Azure resource group for live infra verification.
+- `.github/workflows/opensandbox-infra-e2e.yml` is manual and runs OpenSandbox live integration tests.
 
 For GitHub-hosted Azure infra tests, configure one auth mode:
 
 - `AZURE_CREDENTIALS` (service principal JSON for `azure/login`)
 - or `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID` for OIDC login
 
+For GitHub-hosted OpenSandbox infra tests, configure:
+
+- `OPENSANDBOX_BASE_URL` (unless provided as workflow input)
+- optional `OPENSANDBOX_API_KEY`
+
 ## Notes
 
 - `adapter-memory` is functional and intended for tests/examples only.
-- `adapter-local-docker` supports lifecycle, exec, upload, and download via `docker` CLI.
+- `adapter-local-docker` supports lifecycle, exec, upload, and download via `docker` CLI, plus optional browser session capability.
 - `adapter-azure` supports lifecycle, exec, upload, and download via `az` CLI + Azure Container Instances.
 - `adapter-opensandbox` supports lifecycle, exec, upload, and download over HTTP transport.
+- `@sandbox-core/conformance` provides shared backend conformance tests used by all adapter test suites.
 - Core stays backend-neutral.
 - Browser, artifacts, and durability are modeled as optional capabilities.

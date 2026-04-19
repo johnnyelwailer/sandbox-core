@@ -1,7 +1,7 @@
 {
-  "name": "@sandbox-core/adapter-azure",
+  "name": "@sandbox-core/conformance",
   "version": "0.1.0",
-  "description": "Azure backend for sandbox-core",
+  "description": "Shared backend conformance test helpers for sandbox-core",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -14,7 +14,6 @@
     }
   },
   "dependencies": {
-    "@sandbox-core/conformance": "0.1.0",
     "@sandbox-core/core": "0.1.0"
   }
 }

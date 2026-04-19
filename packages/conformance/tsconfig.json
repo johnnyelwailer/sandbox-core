@@ -3,14 +3,11 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
-    "tsBuildInfoFile": "../../node_modules/.cache/tsc/adapter-memory.tsbuildinfo"
+    "tsBuildInfoFile": "../../node_modules/.cache/tsc/conformance.tsbuildinfo"
   },
   "references": [
     {
       "path": "../core"
-    },
-    {
-      "path": "../conformance"
     }
   ],
   "include": [
