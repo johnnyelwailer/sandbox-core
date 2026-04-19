@@ -1,12 +1,16 @@
 # @sandbox-core/adapter-local-docker
 
-Local Docker backend scaffold.
+Local Docker backend for `sandbox-core`.
 
-Planned responsibilities:
+Current behavior:
 
-- local sandbox lifecycle
-- command execution
-- file transfer
-- optional browser and port support
+- create/get/inspect/terminate sandboxes using Docker containers
+- run commands with streamed status/stdout/stderr/exit events
+- upload and download files with `docker cp`
+- optional secret resolution through `SandboxContext.resolveSecret`
 
-This package is scaffold-only for now.
+Notes:
+
+- this adapter uses the local `docker` CLI
+- durability is process-local plus reconnect by sandbox id
+- browser/artifact capabilities are not implemented yet

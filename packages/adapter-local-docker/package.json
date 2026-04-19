@@ -1,7 +1,7 @@
 {
   "name": "@sandbox-core/adapter-local-docker",
   "version": "0.1.0",
-  "description": "Local Docker backend scaffold for sandbox-core",
+  "description": "Local Docker backend for sandbox-core",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
