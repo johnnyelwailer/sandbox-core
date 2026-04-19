@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc -b",
     "clean": "tsc -b --clean",
-    "test": "npm run build && node --test packages/core/dist/registry.test.js",
+    "test": "npm run build && node --test packages/core/dist/registry.test.js packages/adapter-memory/dist/index.test.js",
     "typecheck": "tsc -b --pretty false"
   },
   "devDependencies": {

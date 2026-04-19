@@ -14,6 +14,7 @@ This repository now contains:
 - the initial PRD
 - a TypeScript monorepo scaffold
 - a portable core contract
+- a functional in-memory backend for tests and examples
 - stub backend packages for local Docker, Azure, and OpenSandbox
 
 ## Workspace layout
@@ -21,6 +22,7 @@ This repository now contains:
 ```text
 packages/
   adapter-azure/
+  adapter-memory/
   adapter-local-docker/
   adapter-opensandbox/
   core/
@@ -35,11 +37,13 @@ docs/
 ```bash
 npm install
 npm run build
+npm test
 npm run typecheck
 ```
 
 ## Notes
 
-- The backend packages are intentionally scaffold-only in this first cut.
+- `adapter-memory` is functional and intended for tests/examples only.
+- The Docker, Azure, and OpenSandbox packages are scaffold-only in this first cut.
 - Core stays backend-neutral.
 - Browser, artifacts, and durability are modeled as optional capabilities.

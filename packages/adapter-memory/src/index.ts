@@ -1,0 +1,168 @@
+import { randomUUID } from "node:crypto";
+
+import { SandboxError } from "@sandbox-core/core";
+import type {
+  CreateSandboxRequest,
+  DownloadRequest,
+  ExecRequest,
+  Sandbox,
+  SandboxBackend,
+  SandboxCapabilityDescriptor,
+  SandboxContext,
+  SandboxInfo,
+  SandboxLookup,
+  SandboxStatus,
+  UploadRequest
+} from "@sandbox-core/core";
+
+interface MemorySandboxRecord {
+  capabilities: SandboxCapabilityDescriptor[];
+  createdAt: string;
+  files: Map<string, Uint8Array>;
+  id: string;
+  labels?: Record<string, string>;
+  metadata?: CreateSandboxRequest["metadata"];
+  status: SandboxStatus;
+  updatedAt?: string;
+}
+
+export interface MemoryBackendOptions {
+  id?: string;
+}
+
+class MemorySandbox implements Sandbox {
+  readonly backend: string;
+  readonly capabilities: SandboxCapabilityDescriptor[];
+  readonly id: string;
+
+  constructor(private readonly record: MemorySandboxRecord, backend: string) {
+    this.backend = backend;
+    this.capabilities = record.capabilities;
+    this.id = record.id;
+  }
+
+  async download(request: DownloadRequest): Promise<Uint8Array> {
+    const content = this.record.files.get(request.sourcePath);
+    if (content === undefined) {
+      throw new SandboxError({
+        code: "file_transfer_failed",
+        message: `File '${request.sourcePath}' does not exist in sandbox '${this.id}'.`,
+        details: {
+          path: request.sourcePath,
+          sandboxId: this.id
+        }
+      });
+    }
+
+    return content;
+  }
+
+  async *exec(request: ExecRequest) {
+    this.record.status = "running";
+    this.record.updatedAt = new Date().toISOString();
+
+    yield {
+      at: new Date().toISOString(),
+      status: this.record.status,
+      type: "status" as const
+    };
+
+    const renderedCommand = [request.command, ...(request.args ?? [])].join(" ").trim();
+
+    yield {
+      at: new Date().toISOString(),
+      data: renderedCommand.length > 0 ? renderedCommand : request.command,
+      type: "stdout" as const
+    };
+
+    this.record.status = "ready";
+    this.record.updatedAt = new Date().toISOString();
+
+    yield {
+      at: new Date().toISOString(),
+      exitCode: 0,
+      type: "exit" as const
+    };
+  }
+
+  async getCapability() {
+    return null;
+  }
+
+  async inspect(): Promise<SandboxInfo> {
+    return {
+      backend: this.backend,
+      capabilities: this.capabilities,
+      createdAt: this.record.createdAt,
+      durability: {
+        browserState: false,
+        filesystemState: true,
+        processState: false,
+        reconnectable: true
+      },
+      id: this.id,
+      labels: this.record.labels,
+      metadata: this.record.metadata,
+      status: this.record.status,
+      updatedAt: this.record.updatedAt
+    };
+  }
+
+  async terminate(): Promise<void> {
+    this.record.status = "terminated";
+    this.record.updatedAt = new Date().toISOString();
+  }
+
+  async upload(request: UploadRequest): Promise<void> {
+    const content =
+      typeof request.content === "string"
+        ? new TextEncoder().encode(request.content)
+        : request.content;
+
+    this.record.files.set(request.destinationPath, content);
+    this.record.updatedAt = new Date().toISOString();
+  }
+}
+
+export class MemoryBackend implements SandboxBackend {
+  readonly advertisedCapabilities = ["durability"] as const;
+  readonly displayName = "Memory";
+  readonly id: string;
+  private readonly sandboxes = new Map<string, MemorySandboxRecord>();
+
+  constructor(options: MemoryBackendOptions = {}) {
+    this.id = options.id ?? "memory";
+  }
+
+  async create(request: CreateSandboxRequest, _context: SandboxContext = {}): Promise<Sandbox> {
+    const createdAt = new Date().toISOString();
+    const id = `${this.id}:${randomUUID()}`;
+
+    const record: MemorySandboxRecord = {
+      capabilities: [],
+      createdAt,
+      files: new Map<string, Uint8Array>(),
+      id,
+      labels: request.labels,
+      metadata: request.metadata,
+      status: "ready",
+      updatedAt: createdAt
+    };
+
+    this.sandboxes.set(id, record);
+    return new MemorySandbox(record, this.id);
+  }
+
+  async get(lookup: SandboxLookup, _context: SandboxContext = {}): Promise<Sandbox | null> {
+    const record = this.sandboxes.get(lookup.id);
+    if (record === undefined) {
+      return null;
+    }
+
+    return new MemorySandbox(record, this.id);
+  }
+}
+
+export function createMemoryBackend(options: MemoryBackendOptions = {}): MemoryBackend {
+  return new MemoryBackend(options);
+}
