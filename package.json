@@ -8,9 +8,11 @@
   "scripts": {
     "build": "tsc -b",
     "clean": "tsc -b --clean",
+    "test": "npm run build && node --test packages/core/dist/registry.test.js",
     "typecheck": "tsc -b --pretty false"
   },
   "devDependencies": {
+    "@types/node": "^22.15.3",
     "typescript": "^5.8.3"
   }
 }
