@@ -102,6 +102,42 @@ registerSandboxConformanceSuite({
     command: "echo"
   },
   name: "local-docker",
+  secretResolution: {
+    createWithResolver: async () => {
+      const backend = createLocalDockerBackend({
+        idGenerator: () => "conformance-secret-ok",
+        runner: createRunner()
+      });
+      return backend.create(
+        {
+          environment: {
+            image: "alpine:3.20",
+            kind: "container"
+          },
+          secrets: [{ name: "API_KEY", source: "test" }]
+        },
+        {
+          resolveSecret: async (secretRef) => ({
+            name: secretRef.name,
+            value: "docker-secret"
+          })
+        }
+      );
+    },
+    createWithoutResolver: async () => {
+      const backend = createLocalDockerBackend({
+        idGenerator: () => "conformance-secret-missing",
+        runner: createRunner()
+      });
+      return backend.create({
+        environment: {
+          image: "alpine:3.20",
+          kind: "container"
+        },
+        secrets: [{ name: "MISSING_SECRET" }]
+      });
+    }
+  },
   supportsBrowser: true,
   supportsExec: true,
   supportsUploadDownload: true,

@@ -94,6 +94,40 @@ registerSandboxConformanceSuite({
     command: "echo"
   },
   name: "opensandbox",
+  secretResolution: {
+    createWithResolver: async () => {
+      const backend = createOpenSandboxBackend({
+        transport: createTransport()
+      });
+      return backend.create(
+        {
+          environment: {
+            image: "ubuntu:24.04",
+            kind: "container"
+          },
+          secrets: [{ name: "API_KEY", source: "test" }]
+        },
+        {
+          resolveSecret: async (secretRef) => ({
+            name: secretRef.name,
+            value: "opensandbox-secret"
+          })
+        }
+      );
+    },
+    createWithoutResolver: async () => {
+      const backend = createOpenSandboxBackend({
+        transport: createTransport()
+      });
+      return backend.create({
+        environment: {
+          image: "ubuntu:24.04",
+          kind: "container"
+        },
+        secrets: [{ name: "MISSING_SECRET" }]
+      });
+    }
+  },
   supportsExec: true,
   supportsUploadDownload: true,
   uploadDownloadCase: {

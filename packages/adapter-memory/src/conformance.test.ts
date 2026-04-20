@@ -17,6 +17,36 @@ registerSandboxConformanceSuite({
     command: "echo"
   },
   name: "memory",
+  secretResolution: {
+    createWithResolver: async () => {
+      const backend = createMemoryBackend();
+      return backend.create(
+        {
+          environment: {
+            kind: "template",
+            template: "default"
+          },
+          secrets: [{ name: "API_KEY", source: "test" }]
+        },
+        {
+          resolveSecret: async (secretRef) => ({
+            name: secretRef.name,
+            value: "memory-secret"
+          })
+        }
+      );
+    },
+    createWithoutResolver: async () => {
+      const backend = createMemoryBackend();
+      return backend.create({
+        environment: {
+          kind: "template",
+          template: "default"
+        },
+        secrets: [{ name: "MISSING_SECRET" }]
+      });
+    }
+  },
   supportsExec: true,
   supportsUploadDownload: true,
   uploadDownloadCase: {

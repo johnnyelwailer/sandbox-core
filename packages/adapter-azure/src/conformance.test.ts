@@ -78,6 +78,44 @@ registerSandboxConformanceSuite({
     command: "echo"
   },
   name: "azure",
+  secretResolution: {
+    createWithResolver: async () => {
+      const backend = createAzureBackend({
+        idGenerator: () => "conformance-secret-ok",
+        resourceGroup: "rg-test",
+        runner: createRunner()
+      });
+      return backend.create(
+        {
+          environment: {
+            image: "mcr.microsoft.com/azurelinux/base/core:3.0",
+            kind: "container"
+          },
+          secrets: [{ name: "API_KEY", source: "test" }]
+        },
+        {
+          resolveSecret: async (secretRef) => ({
+            name: secretRef.name,
+            value: "azure-secret"
+          })
+        }
+      );
+    },
+    createWithoutResolver: async () => {
+      const backend = createAzureBackend({
+        idGenerator: () => "conformance-secret-missing",
+        resourceGroup: "rg-test",
+        runner: createRunner()
+      });
+      return backend.create({
+        environment: {
+          image: "mcr.microsoft.com/azurelinux/base/core:3.0",
+          kind: "container"
+        },
+        secrets: [{ name: "MISSING_SECRET" }]
+      });
+    }
+  },
   supportsExec: true,
   supportsUploadDownload: false
 });

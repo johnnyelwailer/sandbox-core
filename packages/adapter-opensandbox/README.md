@@ -21,3 +21,5 @@ Tests:
 - optional integration test:
   - `npm run test:opensandbox`
   - requires `RUN_OPENSANDBOX_TESTS=1` (set by script) and `OPENSANDBOX_BASE_URL`
+  - optional `OPENSANDBOX_NAMESPACE` for isolated test runs
+  - test includes best-effort cleanup in `finally` on failures

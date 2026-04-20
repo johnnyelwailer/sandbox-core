@@ -12,6 +12,7 @@ import type {
   SandboxInfo,
   SandboxLookup,
   SandboxStatus,
+  SecretRef,
   UploadRequest
 } from "@sandbox-core/core";
 
@@ -134,7 +135,9 @@ export class MemoryBackend implements SandboxBackend {
     this.id = options.id ?? "memory";
   }
 
-  async create(request: CreateSandboxRequest, _context: SandboxContext = {}): Promise<Sandbox> {
+  async create(request: CreateSandboxRequest, context: SandboxContext = {}): Promise<Sandbox> {
+    await this.ensureSecretsResolved(request, context);
+
     const createdAt = new Date().toISOString();
     const id = `${this.id}:${randomUUID()}`;
 
@@ -160,6 +163,40 @@ export class MemoryBackend implements SandboxBackend {
     }
 
     return new MemorySandbox(record, this.id);
+  }
+
+  private async ensureSecretsResolved(
+    request: CreateSandboxRequest,
+    context: SandboxContext
+  ): Promise<void> {
+    if (request.secrets === undefined || request.secrets.length === 0) {
+      return;
+    }
+
+    if (context.resolveSecret === undefined) {
+      throw new SandboxError({
+        code: "secret_resolution_failed",
+        message: "Secret references were provided, but no resolveSecret context was provided."
+      });
+    }
+
+    for (const secretRef of request.secrets) {
+      await this.resolveSecretRef(secretRef, context);
+    }
+  }
+
+  private async resolveSecretRef(secretRef: SecretRef, context: SandboxContext): Promise<void> {
+    const resolvedSecret = await context.resolveSecret?.(secretRef);
+    if (resolvedSecret === null || resolvedSecret === undefined) {
+      throw new SandboxError({
+        code: "secret_resolution_failed",
+        message: `Unable to resolve secret '${secretRef.name}'.`,
+        details: {
+          secret: secretRef.name,
+          source: secretRef.source ?? null
+        }
+      });
+    }
   }
 }
 

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { SandboxError } from "@sandbox-core/core";
 import type {
   BrowserSessionRequest,
   ExecRequest,
@@ -8,11 +9,17 @@ import type {
   SandboxStatus
 } from "@sandbox-core/core";
 
+export interface SecretResolutionConformanceCase {
+  createWithResolver: () => Promise<Sandbox>;
+  createWithoutResolver: () => Promise<unknown>;
+}
+
 export interface ConformanceSuiteOptions {
   createSandbox: () => Promise<Sandbox>;
   execRequest?: ExecRequest;
   name: string;
   postTerminateStatuses?: SandboxStatus[];
+  secretResolution?: SecretResolutionConformanceCase;
   supportsBrowser?: boolean;
   supportsExec?: boolean;
   supportsUploadDownload?: boolean;
@@ -94,5 +101,31 @@ export function registerSandboxConformanceSuite(options: ConformanceSuiteOptions
 
     assert.equal(session.protocol, "playwright");
     assert.ok(session.endpoint.length > 0);
+  });
+
+  test(`${options.name}: secrets resolve with resolver`, async (context) => {
+    const secretResolution = options.secretResolution;
+    if (secretResolution === undefined) {
+      context.skip("secret-resolution conformance disabled for this backend");
+      return;
+    }
+
+    const sandbox = await secretResolution.createWithResolver();
+    assert.ok(sandbox.id.length > 0);
+    await sandbox.terminate();
+  });
+
+  test(`${options.name}: secrets require resolver`, async (context) => {
+    const secretResolution = options.secretResolution;
+    if (secretResolution === undefined) {
+      context.skip("secret-resolution conformance disabled for this backend");
+      return;
+    }
+
+    await assert.rejects(
+      () => secretResolution.createWithoutResolver(),
+      (error: unknown) =>
+        error instanceof SandboxError && error.code === "secret_resolution_failed"
+    );
   });
 }

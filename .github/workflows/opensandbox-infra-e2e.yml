@@ -7,6 +7,16 @@ on:
         description: OpenSandbox API base URL (overrides repository secret)
         required: false
         default: ""
+      disposable_namespace:
+        description: Auto-generate an isolated namespace when no namespace is provided
+        required: true
+        default: true
+        type: boolean
+      cleanup_generated_namespace:
+        description: Best-effort cleanup of generated namespace sandboxes after the test run
+        required: true
+        default: true
+        type: boolean
       namespace:
         description: Optional OpenSandbox namespace
         required: false
@@ -41,14 +51,30 @@ jobs:
             exit 1
           fi
 
+          NAMESPACE_VALUE=""
           if [ -n "${{ inputs.namespace }}" ]; then
-            echo "OPENSANDBOX_NAMESPACE=${{ inputs.namespace }}" >> "$GITHUB_ENV"
+            NAMESPACE_VALUE="${{ inputs.namespace }}"
+          elif [ "${{ inputs.disposable_namespace }}" = "true" ]; then
+            NAMESPACE_VALUE="sandbox-core-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            echo "OPENSANDBOX_NAMESPACE_GENERATED=1" >> "$GITHUB_ENV"
+          fi
+
+          if [ -n "${NAMESPACE_VALUE}" ]; then
+            echo "OPENSANDBOX_NAMESPACE=${NAMESPACE_VALUE}" >> "$GITHUB_ENV"
           fi
 
       - name: Run OpenSandbox integration test
         run: npm run test:opensandbox
         env:
           RUN_OPENSANDBOX_TESTS: "1"
+          OPENSANDBOX_BASE_URL: ${{ env.OPENSANDBOX_BASE_URL }}
+          OPENSANDBOX_API_KEY: ${{ secrets.OPENSANDBOX_API_KEY }}
+          OPENSANDBOX_NAMESPACE: ${{ env.OPENSANDBOX_NAMESPACE }}
+
+      - name: Cleanup generated OpenSandbox namespace
+        if: ${{ always() && inputs.cleanup_generated_namespace && env.OPENSANDBOX_NAMESPACE != '' && env.OPENSANDBOX_NAMESPACE_GENERATED == '1' }}
+        run: node ./scripts/opensandbox-cleanup.mjs
+        env:
           OPENSANDBOX_BASE_URL: ${{ env.OPENSANDBOX_BASE_URL }}
           OPENSANDBOX_API_KEY: ${{ secrets.OPENSANDBOX_API_KEY }}
           OPENSANDBOX_NAMESPACE: ${{ env.OPENSANDBOX_NAMESPACE }}

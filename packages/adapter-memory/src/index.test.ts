@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { SandboxError } from "@sandbox-core/core";
+
 import { createMemoryBackend } from "./index";
 
 test("memory backend preserves uploaded files across lookup", async () => {
@@ -51,4 +53,49 @@ test("memory backend emits simple exec events", async () => {
   }
 
   assert.equal(events[1].data, "echo hello");
+});
+
+test("memory backend resolves secret refs during create", async () => {
+  const backend = createMemoryBackend();
+  const resolved: string[] = [];
+
+  await backend.create(
+    {
+      environment: {
+        image: "node:22",
+        kind: "container"
+      },
+      secrets: [{ name: "API_KEY", source: "test" }]
+    },
+    {
+      resolveSecret: async (secretRef) => {
+        resolved.push(secretRef.name);
+        return {
+          name: secretRef.name,
+          value: "resolved-value"
+        };
+      }
+    }
+  );
+
+  assert.deepEqual(resolved, ["API_KEY"]);
+});
+
+test("memory backend fails when secret refs exist without resolver", async () => {
+  const backend = createMemoryBackend();
+
+  await assert.rejects(
+    () =>
+      backend.create({
+        environment: {
+          image: "node:22",
+          kind: "container"
+        },
+        secrets: [{ name: "MISSING_SECRET" }]
+      }),
+    (error: unknown) =>
+      error instanceof SandboxError &&
+      error.code === "secret_resolution_failed" &&
+      error.message.includes("resolveSecret")
+  );
 });

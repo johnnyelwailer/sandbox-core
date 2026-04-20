@@ -51,7 +51,7 @@ npm run typecheck
 
 - `.github/workflows/ci.yml` runs `typecheck` and unit tests on push/PR.
 - `.github/workflows/azure-infra-e2e.yml` is manual and creates a temporary Azure resource group for live infra verification.
-- `.github/workflows/opensandbox-infra-e2e.yml` is manual and runs OpenSandbox live integration tests.
+- `.github/workflows/opensandbox-infra-e2e.yml` is manual and runs OpenSandbox live integration tests with optional disposable namespace isolation and best-effort cleanup.
 
 For GitHub-hosted Azure infra tests, configure one auth mode:
 
@@ -62,6 +62,9 @@ For GitHub-hosted OpenSandbox infra tests, configure:
 
 - `OPENSANDBOX_BASE_URL` (unless provided as workflow input)
 - optional `OPENSANDBOX_API_KEY`
+- optional workflow input `namespace` for a fixed namespace
+- optional workflow input `disposable_namespace=true` to auto-generate a run-scoped namespace when `namespace` is not provided
+- optional workflow input `cleanup_generated_namespace=true` to run `scripts/opensandbox-cleanup.mjs` after test completion
 
 ## Notes
 
@@ -70,5 +73,6 @@ For GitHub-hosted OpenSandbox infra tests, configure:
 - `adapter-azure` supports lifecycle, exec, upload, and download via `az` CLI + Azure Container Instances.
 - `adapter-opensandbox` supports lifecycle, exec, upload, and download over HTTP transport.
 - `@sandbox-core/conformance` provides shared backend conformance tests used by all adapter test suites.
+- integration tests now use best-effort `finally` cleanup to reduce leaked resources on failures.
 - Core stays backend-neutral.
 - Browser, artifacts, and durability are modeled as optional capabilities.
