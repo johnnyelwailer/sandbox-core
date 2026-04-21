@@ -4,10 +4,12 @@ import { SandboxError } from "@sandbox-core/core";
 import type {
   CreateSandboxRequest,
   DownloadRequest,
+  DurabilityCapability,
   ExecRequest,
   Sandbox,
   SandboxBackend,
   SandboxCapabilityDescriptor,
+  SandboxCapabilityMap,
   SandboxContext,
   SandboxInfo,
   SandboxLookup,
@@ -29,6 +31,19 @@ interface MemorySandboxRecord {
 
 export interface MemoryBackendOptions {
   id?: string;
+}
+
+function durabilitySnapshot(): ReturnType<DurabilityCapability["inspectDurability"]> extends Promise<
+  infer Result
+>
+  ? Result
+  : never {
+  return {
+    browserState: false,
+    filesystemState: true,
+    processState: false,
+    reconnectable: true
+  };
 }
 
 class MemorySandbox implements Sandbox {
@@ -86,8 +101,16 @@ class MemorySandbox implements Sandbox {
     };
   }
 
-  async getCapability() {
-    return null;
+  async getCapability<Name extends keyof SandboxCapabilityMap>(
+    name: Name
+  ): Promise<SandboxCapabilityMap[Name] | null> {
+    if (name !== "durability") {
+      return null;
+    }
+
+    return {
+      inspectDurability: async () => durabilitySnapshot()
+    } as SandboxCapabilityMap[Name];
   }
 
   async inspect(): Promise<SandboxInfo> {
@@ -95,12 +118,7 @@ class MemorySandbox implements Sandbox {
       backend: this.backend,
       capabilities: this.capabilities,
       createdAt: this.record.createdAt,
-      durability: {
-        browserState: false,
-        filesystemState: true,
-        processState: false,
-        reconnectable: true
-      },
+      durability: durabilitySnapshot(),
       id: this.id,
       labels: this.record.labels,
       metadata: this.record.metadata,
@@ -142,7 +160,7 @@ export class MemoryBackend implements SandboxBackend {
     const id = `${this.id}:${randomUUID()}`;
 
     const record: MemorySandboxRecord = {
-      capabilities: [],
+      capabilities: [{ name: "durability" }],
       createdAt,
       files: new Map<string, Uint8Array>(),
       id,

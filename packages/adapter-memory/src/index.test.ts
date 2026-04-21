@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { SandboxError } from "@sandbox-core/core";
+import { SandboxError, hasCapability } from "@sandbox-core/core";
 
 import { createMemoryBackend } from "./index";
 
@@ -53,6 +53,31 @@ test("memory backend emits simple exec events", async () => {
   }
 
   assert.equal(events[1].data, "echo hello");
+});
+
+test("memory backend exposes durability capability", async () => {
+  const backend = createMemoryBackend();
+  const sandbox = await backend.create({
+    environment: {
+      kind: "template",
+      template: "default"
+    }
+  });
+
+  assert.equal(hasCapability(sandbox.capabilities, "durability"), true);
+
+  const durability = await sandbox.getCapability("durability");
+  assert.notEqual(durability, null);
+  const durabilityState = await durability?.inspectDurability();
+  assert.deepEqual(durabilityState, {
+    browserState: false,
+    filesystemState: true,
+    processState: false,
+    reconnectable: true
+  });
+
+  const info = await sandbox.inspect();
+  assert.deepEqual(durabilityState, info.durability);
 });
 
 test("memory backend resolves secret refs during create", async () => {

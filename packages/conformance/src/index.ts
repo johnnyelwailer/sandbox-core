@@ -21,6 +21,7 @@ export interface ConformanceSuiteOptions {
   postTerminateStatuses?: SandboxStatus[];
   secretResolution?: SecretResolutionConformanceCase;
   supportsBrowser?: boolean;
+  supportsDurability?: boolean;
   supportsExec?: boolean;
   supportsUploadDownload?: boolean;
   uploadDownloadCase?: {
@@ -46,6 +47,25 @@ export function registerSandboxConformanceSuite(options: ConformanceSuiteOptions
     await sandbox.terminate();
     const info = await sandbox.inspect();
     assert.ok(postTerminateStatuses.includes(info.status));
+  });
+
+  test(`${options.name}: durability capability contract`, async (context) => {
+    if (options.supportsDurability === false) {
+      context.skip("durability capability not expected for this backend");
+      return;
+    }
+
+    const sandbox = await options.createSandbox();
+    assert.ok(
+      sandbox.capabilities.some((capability) => capability.name === "durability")
+    );
+
+    const capability = await sandbox.getCapability("durability");
+    assert.ok(capability !== null);
+
+    const capabilityDurability = await capability.inspectDurability();
+    const info = await sandbox.inspect();
+    assert.deepEqual(capabilityDurability, info.durability);
   });
 
   test(`${options.name}: exec contract`, async (context) => {
