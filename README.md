@@ -88,5 +88,6 @@ For GitHub-hosted OpenSandbox infra tests, configure:
 - `adapter-opensandbox` supports lifecycle, exec, upload, and download over HTTP transport.
 - `@sandbox-core/conformance` provides shared backend conformance tests used by all adapter test suites.
 - integration tests now use best-effort `finally` cleanup to reduce leaked resources on failures.
+- adapter failure details apply secret-like token redaction to reduce credential leakage risk in logs/errors.
 - Core stays backend-neutral.
 - Browser, artifacts, and durability are modeled as optional capabilities.

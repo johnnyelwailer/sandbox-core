@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { basename, dirname } from "node:path";
 
-import { SandboxError } from "@sandbox-core/core";
+import { redactSensitiveText, SandboxError } from "@sandbox-core/core";
 import type {
   ContainerEnvironmentSpec,
   CreateSandboxRequest,
@@ -735,8 +735,8 @@ export class AzureBackend implements SandboxBackend {
       message: `Failed to ${operation}.`,
       details: {
         exitCode: result.exitCode,
-        stderr: result.stderr,
-        stdout: result.stdout
+        stderr: redactSensitiveText(result.stderr),
+        stdout: redactSensitiveText(result.stdout)
       }
     });
   }
@@ -761,7 +761,7 @@ export class AzureBackend implements SandboxBackend {
       code: mappedCode,
       message: `Failed to ${operation}.`,
       details: {
-        error: message
+        error: redactSensitiveText(message)
       },
       cause: error
     });

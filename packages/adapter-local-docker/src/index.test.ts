@@ -262,6 +262,49 @@ test("create fails when secret refs exist without resolver", async () => {
   );
 });
 
+test("create failure redacts secrets from error details", async () => {
+  const { runner } = createRunner(async () => ({
+    exitCode: 1,
+    signal: null,
+    stderr: "docker failed API_KEY=secret-value Authorization: Bearer abc123",
+    stdout: "x-api-key: key789",
+    timedOut: false
+  }));
+
+  const backend = createLocalDockerBackend({
+    idGenerator: () => "redact1",
+    runner
+  });
+
+  await assert.rejects(
+    () =>
+      backend.create(
+        {
+          environment: {
+            image: "alpine:3.20",
+            kind: "container"
+          },
+          secrets: [{ name: "API_KEY", source: "test" }]
+        },
+        {
+          resolveSecret: async () => ({
+            name: "API_KEY",
+            value: "secret-value"
+          })
+        }
+      ),
+    (error: unknown) =>
+      error instanceof SandboxError &&
+      typeof error.details?.stderr === "string" &&
+      typeof error.details?.stdout === "string" &&
+      !error.details.stderr.includes("secret-value") &&
+      !error.details.stderr.includes("abc123") &&
+      !error.details.stdout.includes("key789") &&
+      error.details.stderr.includes("[REDACTED]") &&
+      error.details.stdout.includes("[REDACTED]")
+  );
+});
+
 test("terminate tolerates missing container and reports terminated on inspect", async () => {
   const { runner } = createRunner(async (request) => {
     if (request.args[0] === "run") {

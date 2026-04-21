@@ -200,3 +200,34 @@ test("create fails when secrets are provided without resolver", async () => {
       error.message.includes("resolveSecret")
   );
 });
+
+test("create failure redacts secret-like response details", async () => {
+  const backend = createOpenSandboxBackend({
+    transport: async () => ({
+      body: {
+        message: "create failed api_key=secret-value Authorization: Bearer abc123",
+        trace: "x-api-key: key789"
+      },
+      status: 500
+    })
+  });
+
+  await assert.rejects(
+    () =>
+      backend.create({
+        environment: {
+          image: "ubuntu:24.04",
+          kind: "container"
+        }
+      }),
+    (error: unknown) =>
+      error instanceof SandboxError &&
+      !error.message.includes("secret-value") &&
+      !error.message.includes("abc123") &&
+      typeof error.details?.bodyPreview === "string" &&
+      !error.details.bodyPreview.includes("secret-value") &&
+      !error.details.bodyPreview.includes("abc123") &&
+      !error.details.bodyPreview.includes("key789") &&
+      error.details.bodyPreview.includes("[REDACTED]")
+  );
+});

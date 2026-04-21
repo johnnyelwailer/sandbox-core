@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc -b",
     "clean": "tsc -b --clean",
-    "test": "npm run build && node --test packages/core/dist/registry.test.js packages/core/dist/capabilities.test.js packages/adapter-memory/dist/index.test.js packages/adapter-memory/dist/conformance.test.js packages/adapter-local-docker/dist/index.test.js packages/adapter-local-docker/dist/conformance.test.js packages/adapter-azure/dist/index.test.js packages/adapter-azure/dist/conformance.test.js packages/adapter-opensandbox/dist/index.test.js packages/adapter-opensandbox/dist/transport.test.js packages/adapter-opensandbox/dist/conformance.test.js scripts/opensandbox-cleanup.test.mjs",
+    "test": "npm run build && node --test packages/core/dist/registry.test.js packages/core/dist/capabilities.test.js packages/core/dist/redaction.test.js packages/adapter-memory/dist/index.test.js packages/adapter-memory/dist/conformance.test.js packages/adapter-local-docker/dist/index.test.js packages/adapter-local-docker/dist/conformance.test.js packages/adapter-azure/dist/index.test.js packages/adapter-azure/dist/conformance.test.js packages/adapter-opensandbox/dist/index.test.js packages/adapter-opensandbox/dist/transport.test.js packages/adapter-opensandbox/dist/conformance.test.js scripts/opensandbox-cleanup.test.mjs",
     "test:azure": "npm run build && RUN_AZURE_TESTS=1 node --test packages/adapter-azure/dist/integration.test.js",
     "test:azure:infra": "node ./scripts/azure-infra-e2e.mjs",
     "test:docker": "npm run build && RUN_DOCKER_TESTS=1 node --test packages/adapter-local-docker/dist/integration.test.js",

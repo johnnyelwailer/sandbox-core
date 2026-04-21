@@ -1,4 +1,4 @@
-import { SandboxError } from "@sandbox-core/core";
+import { redactSensitiveText, SandboxError } from "@sandbox-core/core";
 import type {
   ContainerEnvironmentSpec,
   CreateSandboxRequest,
@@ -507,7 +507,7 @@ export class OpenSandboxBackend implements SandboxBackend {
         code: "backend_unavailable",
         message: "Failed to communicate with OpenSandbox API.",
         details: {
-          error: error instanceof Error ? error.message : String(error)
+          error: redactSensitiveText(error instanceof Error ? error.message : String(error))
         },
         cause: error
       });
@@ -520,7 +520,9 @@ export class OpenSandboxBackend implements SandboxBackend {
     response: OpenSandboxResponse
   ): SandboxError {
     const payload = this.asObject(response.body);
-    const message = this.readString(payload, "message") ?? `Failed to ${operation}.`;
+    const message = redactSensitiveText(
+      this.readString(payload, "message") ?? `Failed to ${operation}.`
+    );
 
     return new SandboxError({
       code,
@@ -534,13 +536,13 @@ export class OpenSandboxBackend implements SandboxBackend {
 
   private previewBody(value: unknown): string {
     if (typeof value === "string") {
-      return value.slice(0, 500);
+      return redactSensitiveText(value).slice(0, 500);
     }
 
     try {
-      return JSON.stringify(value).slice(0, 500);
+      return redactSensitiveText(JSON.stringify(value)).slice(0, 500);
     } catch {
-      return String(value).slice(0, 500);
+      return redactSensitiveText(String(value)).slice(0, 500);
     }
   }
 

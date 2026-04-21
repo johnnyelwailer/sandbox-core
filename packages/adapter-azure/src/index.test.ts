@@ -213,6 +213,62 @@ test("create fails when resource group is not configured", async () => {
   );
 });
 
+test("create failure redacts secrets from error details", async () => {
+  const { runner } = createRunner(async (request) => {
+    if (request.args[0] === "container" && request.args[1] === "create") {
+      return {
+        exitCode: 1,
+        signal: null,
+        stderr: "API_KEY=secret-value Authorization: Bearer abc123",
+        stdout: "x-api-key: key789",
+        timedOut: false
+      };
+    }
+
+    return {
+      exitCode: 0,
+      signal: null,
+      stderr: "",
+      stdout: "",
+      timedOut: false
+    };
+  });
+
+  const backend = createAzureBackend({
+    idGenerator: () => "redact1",
+    resourceGroup: "rg-test",
+    runner
+  });
+
+  await assert.rejects(
+    () =>
+      backend.create(
+        {
+          environment: {
+            image: "mcr.microsoft.com/azurelinux/base/core:3.0",
+            kind: "container"
+          },
+          secrets: [{ name: "API_KEY", source: "kv" }]
+        },
+        {
+          resolveSecret: async () => ({
+            name: "API_KEY",
+            value: "secret-value"
+          })
+        }
+      ),
+    (error: unknown) =>
+      error instanceof SandboxError &&
+      typeof error.details?.stderr === "string" &&
+      typeof error.details?.stdout === "string" &&
+      !error.details.stderr.includes("secret-value") &&
+      !error.details.stderr.includes("abc123") &&
+      !error.details.stdout.includes("key789") &&
+      error.details.stderr.includes("[REDACTED]") &&
+      error.details.stdout.includes("[REDACTED]")
+  );
+});
+
 test("terminate tolerates missing container and inspect reports terminated", async () => {
   const { runner } = createRunner(async (request) => {
     if (request.args[0] === "container" && request.args[1] === "create") {
