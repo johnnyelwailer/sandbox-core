@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 function getEnv(name) {
   return (process.env[name] ?? "").trim();
 }
@@ -43,29 +46,45 @@ async function parseJson(response) {
   }
 }
 
-function collectIdsFromUnknown(value, out = new Set()) {
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      collectIdsFromUnknown(item, out);
+function collectIdsFromArray(value, out) {
+  for (const item of value) {
+    if (item === null || typeof item !== "object" || Array.isArray(item)) {
+      continue;
     }
-    return out;
+    if (typeof item.id === "string" && item.id.length > 0) {
+      out.add(item.id);
+    }
+  }
+}
+
+export function extractSandboxIds(value) {
+  const out = new Set();
+  if (Array.isArray(value)) {
+    collectIdsFromArray(value, out);
+    return [...out];
   }
 
   if (value === null || typeof value !== "object") {
-    return out;
+    return [];
   }
 
-  if (typeof value.id === "string" && value.id.length > 0) {
-    out.add(value.id);
-  }
-
-  for (const key of ["items", "sandboxes", "results", "data"]) {
-    if (key in value) {
-      collectIdsFromUnknown(value[key], out);
+  for (const key of ["items", "sandboxes", "results"]) {
+    if (Array.isArray(value[key])) {
+      collectIdsFromArray(value[key], out);
     }
   }
 
-  return out;
+  if (Array.isArray(value.data)) {
+    collectIdsFromArray(value.data, out);
+  } else if (value.data !== null && typeof value.data === "object") {
+    for (const key of ["items", "sandboxes", "results"]) {
+      if (Array.isArray(value.data[key])) {
+        collectIdsFromArray(value.data[key], out);
+      }
+    }
+  }
+
+  return [...out];
 }
 
 async function main() {
@@ -94,7 +113,7 @@ async function main() {
   }
 
   const body = await parseJson(listResponse);
-  const sandboxIds = [...collectIdsFromUnknown(body)];
+  const sandboxIds = extractSandboxIds(body);
   if (sandboxIds.length === 0) {
     console.log(`OpenSandbox cleanup: no sandboxes found in namespace '${namespace}'.`);
     return;
@@ -122,4 +141,10 @@ async function main() {
   );
 }
 
-await main();
+const isEntrypoint =
+  process.argv[1] !== undefined &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isEntrypoint) {
+  await main();
+}
