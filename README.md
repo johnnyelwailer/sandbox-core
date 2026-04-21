@@ -43,9 +43,20 @@ npm run build
 npm test
 npm run test:docker   # optional, requires local Docker daemon
 npm run test:azure    # optional, requires az login + Azure resource group
+npm run test:azure:infra  # creates temporary Azure resource group, runs test:azure, then deletes group
 npm run test:opensandbox  # optional, requires OpenSandbox endpoint
+npm run test:opensandbox:infra  # creates temporary namespace, runs test:opensandbox, then cleans namespace
 npm run typecheck
 ```
+
+Useful environment variables for infra scripts:
+
+- `AZURE_LOCATION` (default: `westeurope`)
+- `AZURE_RESOURCE_GROUP_PREFIX` (default: `sandbox-core-local-e2e`)
+- `OPENSANDBOX_BASE_URL` (required for OpenSandbox infra script)
+- `OPENSANDBOX_API_KEY` (optional)
+- `OPENSANDBOX_NAMESPACE_PREFIX` (default: `sandbox-core-local-e2e`)
+- `OPENSANDBOX_CLEANUP_GENERATED_NAMESPACE` (default: `true`)
 
 ## CI
 

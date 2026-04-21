@@ -23,3 +23,4 @@ Tests:
   - requires `RUN_OPENSANDBOX_TESTS=1` (set by script) and `OPENSANDBOX_BASE_URL`
   - optional `OPENSANDBOX_NAMESPACE` for isolated test runs
   - test includes best-effort cleanup in `finally` on failures
+  - convenience command: `npm run test:opensandbox:infra` (auto-generates a temporary namespace and cleans it)

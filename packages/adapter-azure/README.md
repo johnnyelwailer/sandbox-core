@@ -20,3 +20,4 @@ Tests:
 - optional infrastructure test:
   - `npm run test:azure`
   - requires `RUN_AZURE_TESTS=1` (set by script), authenticated `az`, and `AZURE_RESOURCE_GROUP`
+  - convenience command: `npm run test:azure:infra` (creates/deletes a temporary resource group automatically)
