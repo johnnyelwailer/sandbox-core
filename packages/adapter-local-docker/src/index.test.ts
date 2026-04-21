@@ -266,8 +266,8 @@ test("create failure redacts secrets from error details", async () => {
   const { runner } = createRunner(async () => ({
     exitCode: 1,
     signal: null,
-    stderr: "docker failed API_KEY=secret-value Authorization: Bearer abc123",
-    stdout: "x-api-key: key789",
+    stderr: "docker failed mystery123",
+    stdout: "stdout mystery123",
     timedOut: false
   }));
 
@@ -284,12 +284,12 @@ test("create failure redacts secrets from error details", async () => {
             image: "alpine:3.20",
             kind: "container"
           },
-          secrets: [{ name: "API_KEY", source: "test" }]
+          secrets: [{ name: "SESSION_ID", source: "test" }]
         },
         {
           resolveSecret: async () => ({
-            name: "API_KEY",
-            value: "secret-value"
+            name: "SESSION_ID",
+            value: "mystery123"
           })
         }
       ),
@@ -297,9 +297,8 @@ test("create failure redacts secrets from error details", async () => {
       error instanceof SandboxError &&
       typeof error.details?.stderr === "string" &&
       typeof error.details?.stdout === "string" &&
-      !error.details.stderr.includes("secret-value") &&
-      !error.details.stderr.includes("abc123") &&
-      !error.details.stdout.includes("key789") &&
+      !error.details.stderr.includes("mystery123") &&
+      !error.details.stdout.includes("mystery123") &&
       error.details.stderr.includes("[REDACTED]") &&
       error.details.stdout.includes("[REDACTED]")
   );

@@ -137,7 +137,8 @@ export class AzureBackend implements SandboxBackend {
     await this.runAzStrict(
       { args },
       "create sandbox",
-      "execution_failed"
+      "execution_failed",
+      spec.secretValues
     );
 
     const record: AzureSandboxRecord = {
@@ -474,11 +475,13 @@ export class AzureBackend implements SandboxBackend {
   ): Promise<{
     env: Record<string, string>;
     image: string;
+    secretValues: string[];
     workingDirectory?: string;
   }> {
     let resolved: {
       env: Record<string, string>;
       image: string;
+      secretValues: string[];
       workingDirectory?: string;
     };
 
@@ -487,6 +490,7 @@ export class AzureBackend implements SandboxBackend {
       resolved = {
         env: { ...(environment.env ?? {}) },
         image: environment.image || this.defaultImage,
+        secretValues: [],
         workingDirectory: environment.workingDirectory
       };
     } else {
@@ -501,6 +505,7 @@ export class AzureBackend implements SandboxBackend {
       resolved = {
         env: { ...(template.env ?? {}) },
         image: template.image,
+        secretValues: [],
         workingDirectory: template.workingDirectory
       };
     }
@@ -516,6 +521,7 @@ export class AzureBackend implements SandboxBackend {
       for (const secretRef of request.secrets) {
         const envPair = await this.resolveSecretRef(secretRef, context);
         resolved.env[envPair.name] = envPair.value;
+        resolved.secretValues.push(envPair.value);
       }
     }
 
@@ -696,7 +702,8 @@ export class AzureBackend implements SandboxBackend {
   private async runAzStrict(
     request: AzureCommandRequest,
     operation: string,
-    failureCode: "execution_failed" | "file_transfer_failed"
+    failureCode: "execution_failed" | "file_transfer_failed",
+    knownSecrets: readonly string[] = []
   ): Promise<AzureCommandResult> {
     const result = await this.runAz(request);
     if (result.timedOut) {
@@ -709,7 +716,7 @@ export class AzureBackend implements SandboxBackend {
       });
     }
     if (result.exitCode !== 0) {
-      throw this.mapAzFailure(failureCode, operation, result);
+      throw this.mapAzFailure(failureCode, operation, result, knownSecrets);
     }
 
     return result;
@@ -718,7 +725,8 @@ export class AzureBackend implements SandboxBackend {
   private mapAzFailure(
     defaultCode: "execution_failed" | "file_transfer_failed",
     operation: string,
-    result: AzureCommandResult
+    result: AzureCommandResult,
+    knownSecrets: readonly string[] = []
   ): SandboxError {
     const lowered = `${result.stderr}\n${result.stdout}`.toLowerCase();
     const code =
@@ -735,8 +743,8 @@ export class AzureBackend implements SandboxBackend {
       message: `Failed to ${operation}.`,
       details: {
         exitCode: result.exitCode,
-        stderr: redactSensitiveText(result.stderr),
-        stdout: redactSensitiveText(result.stdout)
+        stderr: redactSensitiveText(result.stderr, knownSecrets),
+        stdout: redactSensitiveText(result.stdout, knownSecrets)
       }
     });
   }

@@ -219,8 +219,8 @@ test("create failure redacts secrets from error details", async () => {
       return {
         exitCode: 1,
         signal: null,
-        stderr: "API_KEY=secret-value Authorization: Bearer abc123",
-        stdout: "x-api-key: key789",
+        stderr: "mystery123 in stderr",
+        stdout: "mystery123 in stdout",
         timedOut: false
       };
     }
@@ -248,12 +248,12 @@ test("create failure redacts secrets from error details", async () => {
             image: "mcr.microsoft.com/azurelinux/base/core:3.0",
             kind: "container"
           },
-          secrets: [{ name: "API_KEY", source: "kv" }]
+          secrets: [{ name: "SESSION_ID", source: "kv" }]
         },
         {
           resolveSecret: async () => ({
-            name: "API_KEY",
-            value: "secret-value"
+            name: "SESSION_ID",
+            value: "mystery123"
           })
         }
       ),
@@ -261,9 +261,8 @@ test("create failure redacts secrets from error details", async () => {
       error instanceof SandboxError &&
       typeof error.details?.stderr === "string" &&
       typeof error.details?.stdout === "string" &&
-      !error.details.stderr.includes("secret-value") &&
-      !error.details.stderr.includes("abc123") &&
-      !error.details.stdout.includes("key789") &&
+      !error.details.stderr.includes("mystery123") &&
+      !error.details.stdout.includes("mystery123") &&
       error.details.stderr.includes("[REDACTED]") &&
       error.details.stdout.includes("[REDACTED]")
   );

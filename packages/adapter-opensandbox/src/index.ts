@@ -91,7 +91,7 @@ export class OpenSandboxBackend implements SandboxBackend {
     });
 
     if (response.status < 200 || response.status >= 300) {
-      throw this.toError("execution_failed", "create sandbox", response);
+      throw this.toError("execution_failed", "create sandbox", response, spec.secretValues);
     }
 
     const body = this.asObject(response.body);
@@ -101,7 +101,7 @@ export class OpenSandboxBackend implements SandboxBackend {
         code: "execution_failed",
         message: "OpenSandbox create response did not include sandbox id.",
         details: {
-          bodyPreview: this.previewBody(response.body)
+          bodyPreview: this.previewBody(response.body, spec.secretValues)
         }
       });
     }
@@ -390,11 +390,13 @@ export class OpenSandboxBackend implements SandboxBackend {
   ): Promise<{
     env: Record<string, string>;
     image: string;
+    secretValues: string[];
     workingDirectory?: string;
   }> {
     let resolved: {
       env: Record<string, string>;
       image: string;
+      secretValues: string[];
       workingDirectory?: string;
     };
 
@@ -403,6 +405,7 @@ export class OpenSandboxBackend implements SandboxBackend {
       resolved = {
         env: { ...(environment.env ?? {}) },
         image: environment.image,
+        secretValues: [],
         workingDirectory: environment.workingDirectory
       };
     } else {
@@ -417,6 +420,7 @@ export class OpenSandboxBackend implements SandboxBackend {
       resolved = {
         env: { ...(template.env ?? {}) },
         image: template.image,
+        secretValues: [],
         workingDirectory: template.workingDirectory
       };
     }
@@ -432,6 +436,7 @@ export class OpenSandboxBackend implements SandboxBackend {
       for (const secretRef of request.secrets) {
         const resolvedSecret = await this.resolveSecretRef(secretRef, context);
         resolved.env[resolvedSecret.name] = resolvedSecret.value;
+        resolved.secretValues.push(resolvedSecret.value);
       }
     }
 
@@ -517,32 +522,34 @@ export class OpenSandboxBackend implements SandboxBackend {
   private toError(
     code: "execution_failed" | "file_transfer_failed",
     operation: string,
-    response: OpenSandboxResponse
+    response: OpenSandboxResponse,
+    knownSecrets: readonly string[] = []
   ): SandboxError {
     const payload = this.asObject(response.body);
     const message = redactSensitiveText(
-      this.readString(payload, "message") ?? `Failed to ${operation}.`
+      this.readString(payload, "message") ?? `Failed to ${operation}.`,
+      knownSecrets
     );
 
     return new SandboxError({
       code,
       message,
       details: {
-        bodyPreview: this.previewBody(response.body),
+        bodyPreview: this.previewBody(response.body, knownSecrets),
         status: response.status
       }
     });
   }
 
-  private previewBody(value: unknown): string {
+  private previewBody(value: unknown, knownSecrets: readonly string[] = []): string {
     if (typeof value === "string") {
-      return redactSensitiveText(value).slice(0, 500);
+      return redactSensitiveText(value, knownSecrets).slice(0, 500);
     }
 
     try {
-      return redactSensitiveText(JSON.stringify(value)).slice(0, 500);
+      return redactSensitiveText(JSON.stringify(value), knownSecrets).slice(0, 500);
     } catch {
-      return redactSensitiveText(String(value)).slice(0, 500);
+      return redactSensitiveText(String(value), knownSecrets).slice(0, 500);
     }
   }
 

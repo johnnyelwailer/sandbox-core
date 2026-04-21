@@ -231,3 +231,40 @@ test("create failure redacts secret-like response details", async () => {
       error.details.bodyPreview.includes("[REDACTED]")
   );
 });
+
+test("create failure redacts resolved secret values from response details", async () => {
+  const backend = createOpenSandboxBackend({
+    transport: async () => ({
+      body: {
+        message: "create failed mystery123",
+        trace: "raw mystery123 response trace"
+      },
+      status: 500
+    })
+  });
+
+  await assert.rejects(
+    () =>
+      backend.create(
+        {
+          environment: {
+            image: "ubuntu:24.04",
+            kind: "container"
+          },
+          secrets: [{ name: "SESSION_ID", source: "test" }]
+        },
+        {
+          resolveSecret: async () => ({
+            name: "SESSION_ID",
+            value: "mystery123"
+          })
+        }
+      ),
+    (error: unknown) =>
+      error instanceof SandboxError &&
+      !error.message.includes("mystery123") &&
+      typeof error.details?.bodyPreview === "string" &&
+      !error.details.bodyPreview.includes("mystery123") &&
+      error.details.bodyPreview.includes("[REDACTED]")
+  );
+});

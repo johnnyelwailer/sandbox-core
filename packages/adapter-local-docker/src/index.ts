@@ -137,7 +137,8 @@ export class LocalDockerBackend implements SandboxBackend {
         args: runArgs
       },
       "create sandbox",
-      "execution_failed"
+      "execution_failed",
+      resolvedSpec.secretValues
     );
 
     const record: DockerSandboxRecord = {
@@ -525,11 +526,13 @@ export class LocalDockerBackend implements SandboxBackend {
   ): Promise<{
     env: Record<string, string>;
     image: string;
+    secretValues: string[];
     workingDirectory?: string;
   }> {
     let resolved: {
       env: Record<string, string>;
       image: string;
+      secretValues: string[];
       workingDirectory?: string;
     };
 
@@ -538,6 +541,7 @@ export class LocalDockerBackend implements SandboxBackend {
       resolved = {
         env: { ...(environment.env ?? {}) },
         image: environment.image || this.defaultImage,
+        secretValues: [],
         workingDirectory: environment.workingDirectory
       };
     } else {
@@ -552,6 +556,7 @@ export class LocalDockerBackend implements SandboxBackend {
       resolved = {
         env: { ...(template.env ?? {}) },
         image: template.image,
+        secretValues: [],
         workingDirectory: template.workingDirectory
       };
     }
@@ -567,6 +572,7 @@ export class LocalDockerBackend implements SandboxBackend {
       for (const secretRef of request.secrets) {
         const envPair = await this.resolveSecretRef(secretRef, context);
         resolved.env[envPair.name] = envPair.value;
+        resolved.secretValues.push(envPair.value);
       }
     }
 
@@ -656,7 +662,8 @@ export class LocalDockerBackend implements SandboxBackend {
   private async runDockerStrict(
     request: DockerCommandRequest,
     operation: string,
-    failureCode: "execution_failed" | "file_transfer_failed"
+    failureCode: "execution_failed" | "file_transfer_failed",
+    knownSecrets: readonly string[] = []
   ): Promise<DockerCommandResult> {
     const result = await this.runDocker(request);
     if (result.timedOut) {
@@ -670,7 +677,7 @@ export class LocalDockerBackend implements SandboxBackend {
     }
 
     if (result.exitCode !== 0) {
-      throw this.mapDockerFailure(failureCode, operation, result);
+      throw this.mapDockerFailure(failureCode, operation, result, knownSecrets);
     }
 
     return result;
@@ -679,7 +686,8 @@ export class LocalDockerBackend implements SandboxBackend {
   private mapDockerFailure(
     defaultCode: "execution_failed" | "file_transfer_failed",
     operation: string,
-    result: DockerCommandResult
+    result: DockerCommandResult,
+    knownSecrets: readonly string[] = []
   ): SandboxError {
     if (result.timedOut) {
       return new SandboxError({
@@ -703,8 +711,8 @@ export class LocalDockerBackend implements SandboxBackend {
       message: `Failed to ${operation}.`,
       details: {
         exitCode: result.exitCode,
-        stderr: redactSensitiveText(result.stderr),
-        stdout: redactSensitiveText(result.stdout)
+        stderr: redactSensitiveText(result.stderr, knownSecrets),
+        stdout: redactSensitiveText(result.stdout, knownSecrets)
       }
     });
   }
