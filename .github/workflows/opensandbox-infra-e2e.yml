@@ -21,6 +21,10 @@ on:
         description: Optional OpenSandbox namespace
         required: false
         default: ""
+      namespace_prefix:
+        description: Prefix for generated namespace when disposable mode is used
+        required: true
+        default: sandbox-core-ci
 
 jobs:
   opensandbox-e2e:
@@ -51,30 +55,27 @@ jobs:
             exit 1
           fi
 
+          echo "OPENSANDBOX_NAMESPACE_PREFIX=${{ inputs.namespace_prefix }}" >> "$GITHUB_ENV"
+          echo "OPENSANDBOX_DISPOSABLE_NAMESPACE=${{ inputs.disposable_namespace }}" >> "$GITHUB_ENV"
+          echo "OPENSANDBOX_CLEANUP_GENERATED_NAMESPACE=${{ inputs.cleanup_generated_namespace }}" >> "$GITHUB_ENV"
+
           NAMESPACE_VALUE=""
           if [ -n "${{ inputs.namespace }}" ]; then
             NAMESPACE_VALUE="${{ inputs.namespace }}"
-          elif [ "${{ inputs.disposable_namespace }}" = "true" ]; then
-            NAMESPACE_VALUE="sandbox-core-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-            echo "OPENSANDBOX_NAMESPACE_GENERATED=1" >> "$GITHUB_ENV"
           fi
 
           if [ -n "${NAMESPACE_VALUE}" ]; then
             echo "OPENSANDBOX_NAMESPACE=${NAMESPACE_VALUE}" >> "$GITHUB_ENV"
+          elif [ "${{ inputs.disposable_namespace }}" = "false" ]; then
+            echo "OPENSANDBOX_CLEANUP_GENERATED_NAMESPACE=false" >> "$GITHUB_ENV"
           fi
 
-      - name: Run OpenSandbox integration test
-        run: npm run test:opensandbox
-        env:
-          RUN_OPENSANDBOX_TESTS: "1"
-          OPENSANDBOX_BASE_URL: ${{ env.OPENSANDBOX_BASE_URL }}
-          OPENSANDBOX_API_KEY: ${{ secrets.OPENSANDBOX_API_KEY }}
-          OPENSANDBOX_NAMESPACE: ${{ env.OPENSANDBOX_NAMESPACE }}
-
-      - name: Cleanup generated OpenSandbox namespace
-        if: ${{ always() && inputs.cleanup_generated_namespace && env.OPENSANDBOX_NAMESPACE != '' && env.OPENSANDBOX_NAMESPACE_GENERATED == '1' }}
-        run: node ./scripts/opensandbox-cleanup.mjs
+      - name: Run OpenSandbox infra verification
+        run: npm run test:opensandbox:infra
         env:
           OPENSANDBOX_BASE_URL: ${{ env.OPENSANDBOX_BASE_URL }}
           OPENSANDBOX_API_KEY: ${{ secrets.OPENSANDBOX_API_KEY }}
           OPENSANDBOX_NAMESPACE: ${{ env.OPENSANDBOX_NAMESPACE }}
+          OPENSANDBOX_NAMESPACE_PREFIX: ${{ env.OPENSANDBOX_NAMESPACE_PREFIX }}
+          OPENSANDBOX_DISPOSABLE_NAMESPACE: ${{ env.OPENSANDBOX_DISPOSABLE_NAMESPACE }}
+          OPENSANDBOX_CLEANUP_GENERATED_NAMESPACE: ${{ env.OPENSANDBOX_CLEANUP_GENERATED_NAMESPACE }}

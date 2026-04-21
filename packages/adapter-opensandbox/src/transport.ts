@@ -32,6 +32,15 @@ export function createOpenSandboxFetchTransport(
       url.searchParams.set(key, value);
     }
 
+    const hasBody = request.body !== undefined;
+    const headers: Record<string, string> = {
+      ...(hasBody ? { "Content-Type": "application/json" } : {})
+    };
+    if (options.apiKey !== undefined && options.apiKey.length > 0) {
+      headers.Authorization = `Bearer ${options.apiKey}`;
+      headers["x-api-key"] = options.apiKey;
+    }
+
     const controller = new AbortController();
     let timeoutHandle: NodeJS.Timeout | undefined;
     if (request.timeoutMs !== undefined && request.timeoutMs > 0) {
@@ -42,11 +51,8 @@ export function createOpenSandboxFetchTransport(
 
     try {
       const response = await fetch(url, {
-        body: request.body === undefined ? undefined : JSON.stringify(request.body),
-        headers: {
-          ...(options.apiKey ? { Authorization: `Bearer ${options.apiKey}` } : {}),
-          "Content-Type": "application/json"
-        },
+        body: hasBody ? JSON.stringify(request.body) : undefined,
+        headers,
         method: request.method,
         signal: controller.signal
       });

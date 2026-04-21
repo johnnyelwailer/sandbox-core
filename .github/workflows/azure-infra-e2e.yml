@@ -22,6 +22,7 @@ jobs:
 
     env:
       AZURE_LOCATION: ${{ inputs.location }}
+      AZURE_RESOURCE_GROUP_PREFIX: ${{ inputs.resource_group_prefix }}
 
     steps:
       - name: Checkout
@@ -64,26 +65,5 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Create temporary resource group
-        run: |
-          RG_NAME="${{ inputs.resource_group_prefix }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          echo "AZURE_RESOURCE_GROUP=${RG_NAME}" >> "$GITHUB_ENV"
-          az group create \
-            --name "${RG_NAME}" \
-            --location "${AZURE_LOCATION}" \
-            --tags "owner=github-actions" "repo=${GITHUB_REPOSITORY}" "run_id=${GITHUB_RUN_ID}" \
-            --output none
-
-      - name: Run Azure integration test
-        run: npm run test:azure
-        env:
-          RUN_AZURE_TESTS: "1"
-          AZURE_RESOURCE_GROUP: ${{ env.AZURE_RESOURCE_GROUP }}
-          AZURE_LOCATION: ${{ env.AZURE_LOCATION }}
-
-      - name: Delete temporary resource group
-        if: always()
-        run: |
-          if [ -n "${AZURE_RESOURCE_GROUP}" ]; then
-            az group delete --name "${AZURE_RESOURCE_GROUP}" --yes --no-wait
-          fi
+      - name: Run Azure infra verification
+        run: npm run test:azure:infra

@@ -56,13 +56,14 @@ Useful environment variables for infra scripts:
 - `OPENSANDBOX_BASE_URL` (required for OpenSandbox infra script)
 - `OPENSANDBOX_API_KEY` (optional)
 - `OPENSANDBOX_NAMESPACE_PREFIX` (default: `sandbox-core-local-e2e`)
+- `OPENSANDBOX_DISPOSABLE_NAMESPACE` (default: `true`; set `false` to require explicit `OPENSANDBOX_NAMESPACE`)
 - `OPENSANDBOX_CLEANUP_GENERATED_NAMESPACE` (default: `true`)
 
 ## CI
 
 - `.github/workflows/ci.yml` runs `typecheck` and unit tests on push/PR.
-- `.github/workflows/azure-infra-e2e.yml` is manual and creates a temporary Azure resource group for live infra verification.
-- `.github/workflows/opensandbox-infra-e2e.yml` is manual and runs OpenSandbox live integration tests with optional disposable namespace isolation and best-effort cleanup.
+- `.github/workflows/azure-infra-e2e.yml` is manual and runs the same local infra script path (`test:azure:infra`) for live verification.
+- `.github/workflows/opensandbox-infra-e2e.yml` is manual and runs the same local infra script path (`test:opensandbox:infra`) with optional disposable namespace isolation and best-effort cleanup.
 
 For GitHub-hosted Azure infra tests, configure one auth mode:
 
@@ -74,7 +75,9 @@ For GitHub-hosted OpenSandbox infra tests, configure:
 - `OPENSANDBOX_BASE_URL` (unless provided as workflow input)
 - optional `OPENSANDBOX_API_KEY`
 - optional workflow input `namespace` for a fixed namespace
+- optional workflow input `namespace_prefix` for generated namespace naming
 - optional workflow input `disposable_namespace=true` to auto-generate a run-scoped namespace when `namespace` is not provided
+- when `disposable_namespace=false`, provide `namespace`
 - optional workflow input `cleanup_generated_namespace=true` to run `scripts/opensandbox-cleanup.mjs` after test completion
 
 ## Notes

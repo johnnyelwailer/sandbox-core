@@ -69,6 +69,14 @@ function main() {
   }
 
   const providedNamespace = trimEnv("OPENSANDBOX_NAMESPACE");
+  const disposableNamespace = toBool(trimEnv("OPENSANDBOX_DISPOSABLE_NAMESPACE"), true);
+  if (providedNamespace.length === 0 && !disposableNamespace) {
+    console.error(
+      "OpenSandbox infra e2e requires OPENSANDBOX_NAMESPACE when OPENSANDBOX_DISPOSABLE_NAMESPACE is false."
+    );
+    process.exit(1);
+  }
+
   const generatedNamespace = providedNamespace.length === 0 ? buildNamespace() : providedNamespace;
   const generatedByScript = providedNamespace.length === 0;
   const cleanupGenerated = toBool(trimEnv("OPENSANDBOX_CLEANUP_GENERATED_NAMESPACE"), true);

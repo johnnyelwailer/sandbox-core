@@ -24,3 +24,4 @@ Tests:
   - optional `OPENSANDBOX_NAMESPACE` for isolated test runs
   - test includes best-effort cleanup in `finally` on failures
   - convenience command: `npm run test:opensandbox:infra` (auto-generates a temporary namespace and cleans it)
+  - set `OPENSANDBOX_DISPOSABLE_NAMESPACE=false` with `test:opensandbox:infra` to require an explicit namespace
